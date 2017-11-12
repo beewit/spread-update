@@ -1,20 +1,15 @@
 package update
 
 import (
-	"io/ioutil"
-	"encoding/json"
-	"net/http"
-	"errors"
+	"fmt"
 	"os"
+	"github.com/henrylee2cn/pholcus/common/mahonia"
 	"io"
 	"archive/zip"
 	"bytes"
-	"net/url"
-	"strings"
-	"github.com/henrylee2cn/pholcus/common/mahonia"
-	"fmt"
 	"github.com/astaxie/beego/logs"
 )
+
 
 type Version struct {
 	Major int `json:"major,omitempty"`
@@ -35,19 +30,8 @@ type Asset struct {
 const (
 	tagFmt = "v%d.%d.%d"
 	apiUrl = "https://gitee.com/api/v5/repos/beewit/spread/releases/latest?access_token=kdw2HGxYpTzVrdKpbQbV"
+	apiDBUrl = "https://gitee.com/api/v5/repos/beewit/spread-db/releases/latest?access_token=kdw2HGxYpTzVrdKpbQbV"
 )
-
-func Upload(cur Version) (error) {
-	rel, err := CheckUpload(cur)
-	if err != nil {
-		return err
-	}
-	err = DownloadFile(rel.Assets)
-	if err != nil {
-		return err
-	}
-	return nil
-}
 
 var Log = logs.GetBeeLogger()
 
@@ -72,69 +56,6 @@ func init() {
 	logs.SetLogger(logs.AdapterMultiFile, conf)
 	logs.SetLogger("console")
 	logs.EnableFuncCallDepth(true)
-}
-
-func CheckUpload(cur Version) (rel Release, err error) {
-	Log.Info("正在检测版本..")
-	resp, err := http.Get(apiUrl)
-	if err != nil {
-		return
-	}
-	defer resp.Body.Close()
-
-	dat, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
-
-	var release Release
-	json.Unmarshal(dat, &release)
-	rel = release.toRelease()
-
-	if !rel.Version.after(cur) {
-		err = errors.New("没有可用的更新")
-	}
-	return
-}
-func DownloadFile(assets []Asset) error {
-	if len(assets) <= 0 {
-		return errors.New("未获取到下载文件")
-	}
-	for i, asset := range assets {
-		if i < len(assets)-1 {
-			u, err := url.Parse(asset.Url)
-			if err != nil {
-				return err
-			}
-			v, err := url.ParseQuery(u.RawQuery)
-			if err != nil {
-				return err
-			}
-			newUrl := v.Get("u")
-			fmt.Println("Downloading", newUrl)
-			resp, err := http.Get(newUrl)
-
-			if err != nil {
-				return err
-			}
-			println(resp.Header.Get("content-type"))
-			dis := resp.Header.Get("content-disposition")
-			if !strings.Contains(dis, "attachment;filename=") {
-				return errors.New("不是有效的下载文件")
-			}
-			defer resp.Body.Close()
-			b, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				return err
-			}
-			fileName := strings.Replace(dis, "attachment;filename=", "", 1)
-			CopyFile(b, fileName)
-			if strings.Contains(fileName, ".zip") {
-				Unzip(fileName)
-			}
-		}
-	}
-	return nil
 }
 
 func CopyFile(byte []byte, dst string) (w int64, err error) {
@@ -201,7 +122,7 @@ func PathExists(path string) (bool, error) {
 	return false, err
 }
 
-func (v Version) after(o Version) bool {
+func (v Version) After(o Version) bool {
 	if v.Major != o.Major {
 		return v.Major > o.Major
 	} else if v.Minor != o.Minor {
@@ -210,7 +131,7 @@ func (v Version) after(o Version) bool {
 	return v.Patch > o.Patch
 }
 
-func (gr Release) toRelease() (rel Release) {
+func (gr Release) ToRelease() (rel Release) {
 	var major, minor, patch int
 	fmt.Sscanf(gr.TagName, tagFmt, &major, &minor, &patch)
 	rel.Version = Version{major, minor, patch}

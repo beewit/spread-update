@@ -1,0 +1,143 @@
+package update
+
+import (
+	"io/ioutil"
+	"encoding/json"
+	"net/http"
+	"errors"
+	"net/url"
+	"fmt"
+	"strings"
+	"os"
+)
+
+func Update(cur Version) (fileNames []string, err error) {
+	rel, err := CheckUpdate(cur, false)
+	if err != nil {
+		return
+	}
+	fileNames, err = DownloadFiles(rel.Assets, nil)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func CheckUpdate(cur Version, compare bool) (rel Release, err error) {
+	Log.Info("正在检测版本..")
+	resp, err := http.Get(apiUrl)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	dat, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+
+	var release Release
+	json.Unmarshal(dat, &release)
+	rel = release.ToRelease()
+	if compare {
+		if !rel.Version.After(cur) {
+			err = errors.New("没有可用的更新")
+		}
+	}
+	return
+}
+
+func DownloadFiles(assets []Asset, successFun func(fileNames []string)) (fileNames []string, err error) {
+	var fileName string
+	defer func() {
+		if err2 := recover(); err2 != nil {
+			//回滚已修改的文件
+			RollbackFile(fileNames)
+		}
+		if err != nil {
+			//回滚已修改的文件
+			RollbackFile(fileNames)
+		} else {
+			if successFun == nil {
+				//删除历史文件
+				RemoveFile(fileNames)
+			} else {
+				successFun(fileNames)
+			}
+		}
+	}()
+	if len(assets) <= 0 {
+		err = errors.New("未获取到下载文件")
+		return
+	}
+	for i, asset := range assets {
+		if i < len(assets)-1 {
+			fileName, err = DownloadFile(asset)
+			if err != nil {
+				return
+			}
+			fileNames = append(fileNames, fileName)
+		}
+	}
+	return
+}
+
+func DownloadFile(asset Asset) (fileName string, err error) {
+	u, err := url.Parse(asset.Url)
+	if err != nil {
+		return
+	}
+	v, err := url.ParseQuery(u.RawQuery)
+	if err != nil {
+		return
+	}
+	newUrl := v.Get("u")
+	fmt.Println("Downloading", newUrl)
+	resp, err := http.Get(newUrl)
+
+	if err != nil {
+		return
+	}
+	println(resp.Header.Get("content-type"))
+	dis := resp.Header.Get("content-disposition")
+	if !strings.Contains(dis, "attachment;filename=") {
+		err = errors.New("不是有效的下载文件")
+		return
+	}
+	defer resp.Body.Close()
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	fileName = strings.Replace(dis, "attachment;filename=", "", 1)
+	_, err = CopyFile(b, fileName)
+	if err != nil {
+		return
+	}
+	if strings.Contains(fileName, ".zip") {
+		Unzip(fileName)
+	}
+	return
+}
+
+func RollbackFile(fileNames []string) {
+	if len(fileNames) > 0 {
+		for _, name := range fileNames {
+			err := os.Rename(name, name+".new")
+			if err != nil {
+				err = os.Rename(name+".old", name)
+				if err != nil {
+					os.Remove(name + ".new")
+				}
+			}
+		}
+	}
+}
+
+func RemoveFile(fileNames []string) {
+	if len(fileNames) > 0 {
+		for _, name := range fileNames {
+			os.Remove(name + ".old")
+		}
+	}
+}

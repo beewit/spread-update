@@ -16,3 +16,4 @@
 *.log
 *.txt
 update.exe
+# go  build -i -ldflags="-H windowsgui -s -w" update.go

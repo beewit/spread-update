@@ -8,7 +8,7 @@ import (
 
 func main() {
 	update.Log.Info("启动更新程序...")
-	err := update.Upload(update.Version{Major: 1, Minor: 0, Patch: 0})
+	_, err := update.Update(update.Version{Major: 1, Minor: 0, Patch: 0})
 	if err != nil {
 		update.Log.Error(err.Error())
 	}
