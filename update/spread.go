@@ -16,7 +16,7 @@ func Update(cur Version) (fileNames []string, err error) {
 	if err != nil {
 		return
 	}
-	fileNames, err = DownloadFiles(rel.Assets, nil)
+	fileNames, err = DownloadFiles("", rel, nil)
 	if err != nil {
 		return
 	}
@@ -56,7 +56,7 @@ func CheckUpdate(cur Version, compare bool) (rel Release, err error) {
 	return
 }
 
-func DownloadFiles(assets []Asset, successFun func(fileNames []string)) (fileNames []string, err error) {
+func DownloadFiles(dir string, rel Release, successFun func(fileNames []string, rel Release)) (fileNames []string, err error) {
 	Logs("DownloadFiles...")
 	var fileName string
 	defer func() {
@@ -72,17 +72,18 @@ func DownloadFiles(assets []Asset, successFun func(fileNames []string)) (fileNam
 				//删除历史文件
 				RemoveFile(fileNames)
 			} else {
-				successFun(fileNames)
+				successFun(fileNames, rel)
 			}
 		}
 	}()
+	assets := rel.Assets
 	if len(assets) <= 0 {
 		err = errors.New("未获取到下载文件")
 		return
 	}
 	for i, asset := range assets {
 		if i < len(assets)-1 {
-			fileName, err = DownloadFile(asset)
+			fileName, err = DownloadFile(dir, asset)
 			if err != nil {
 				return
 			}
@@ -92,7 +93,7 @@ func DownloadFiles(assets []Asset, successFun func(fileNames []string)) (fileNam
 	return
 }
 
-func DownloadFile(asset Asset) (fileName string, err error) {
+func DownloadFile(dir string, asset Asset) (fileName string, err error) {
 	u, err := url.Parse(asset.Url)
 	if err != nil {
 		return
@@ -119,6 +120,9 @@ func DownloadFile(asset Asset) (fileName string, err error) {
 		return
 	}
 	fileName = strings.Replace(dis, "attachment;filename=", "", 1)
+	if dir != "" {
+		fileName = dir + "/" + fileName
+	}
 	Logs(fmt.Sprintf("DownloadFile %s ...", fileName))
 	_, err = CopyFile(b, fileName)
 	if err != nil {

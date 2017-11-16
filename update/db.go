@@ -7,12 +7,12 @@ import (
 	"net/http"
 )
 
-func DBUpdate(cur Version, successFun func(fileNames []string)) (fileNames []string, err error) {
+func DBUpdate(dir string, cur Version, successFun func(fileNames []string, rel Release)) (fileNames []string, err error) {
 	rel, err := DBCheckUpdate(cur, false)
 	if err != nil {
 		return
 	}
-	fileNames, err = DownloadFiles(rel.Assets, successFun)
+	fileNames, err = DownloadFiles(dir  ,rel, successFun)
 	if err != nil {
 		return
 	}
