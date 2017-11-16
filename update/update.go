@@ -3,13 +3,11 @@ package update
 import (
 	"fmt"
 	"os"
-	"github.com/henrylee2cn/pholcus/common/mahonia"
 	"io"
 	"archive/zip"
 	"bytes"
-	"github.com/astaxie/beego/logs"
+	"time"
 )
-
 
 type Version struct {
 	Major int `json:"major,omitempty"`
@@ -28,34 +26,20 @@ type Asset struct {
 }
 
 const (
-	tagFmt = "v%d.%d.%d"
-	apiUrl = "https://gitee.com/api/v5/repos/beewit/spread/releases/latest?access_token=kdw2HGxYpTzVrdKpbQbV"
+	tagFmt   = "v%d.%d.%d"
+	apiUrl   = "https://gitee.com/api/v5/repos/beewit/spread/releases/latest?access_token=kdw2HGxYpTzVrdKpbQbV"
 	apiDBUrl = "https://gitee.com/api/v5/repos/beewit/spread-db/releases/latest?access_token=kdw2HGxYpTzVrdKpbQbV"
 )
 
-var Log = logs.GetBeeLogger()
-
-func init() {
-	conf := fmt.Sprintf(
-		`{
-			"filename": "%s",
-			"maxdays": %s,
-			"daily": %s,
-			"rotate": %s,
-			"level": %s,
-			"separate": "[%s]"
-		}`,
-		"spread-update.log",
-		"10",
-		"true",
-		"true",
-		"7",
-		"error",
-	)
-
-	logs.SetLogger(logs.AdapterMultiFile, conf)
-	logs.SetLogger("console")
-	logs.EnableFuncCallDepth(true)
+func Logs(errStr string) {
+	errStr = time.Now().Format("2006-01-02 15:04:05") + "   " + errStr
+	file, err := os.OpenFile("error.log", os.O_CREATE|os.O_APPEND, 0x644)
+	defer file.Close()
+	if err != nil {
+		println(errStr)
+	} else {
+		file.Write([]byte(errStr))
+	}
 }
 
 func CopyFile(byte []byte, dst string) (w int64, err error) {
@@ -80,7 +64,7 @@ func Unzip(fileName string) {
 	for _, v := range File.File {
 		info := v.FileInfo()
 		if info.IsDir() {
-			err := os.MkdirAll(mahonia.NewDecoder("gb18030").ConvertString(v.Name), 0644)
+			err := os.MkdirAll(v.Name, 0644)
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -92,7 +76,7 @@ func Unzip(fileName string) {
 			continue
 		}
 		defer srcFile.Close()
-		newFile, err := os.Create(mahonia.NewDecoder("gb18030").ConvertString(v.Name))
+		newFile, err := os.Create(v.Name)
 		if err != nil {
 			fmt.Println(err)
 			continue

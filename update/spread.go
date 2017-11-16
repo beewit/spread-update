@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"errors"
 	"net/url"
-	"fmt"
 	"strings"
 	"os"
+	"fmt"
 )
 
 func Update(cur Version) (fileNames []string, err error) {
@@ -24,18 +24,27 @@ func Update(cur Version) (fileNames []string, err error) {
 }
 
 func CheckUpdate(cur Version, compare bool) (rel Release, err error) {
-	Log.Info("正在检测版本..")
+	defer func() {
+		Logs("结束更新程序...")
+		if err := recover(); err != nil {
+			errStr := fmt.Sprintf("《程序出现严重错误，终止运行！》，ERROR：%v", err)
+			Logs(errStr)
+		}
+	}()
+	Logs(fmt.Sprintf("CheckUpdate Get %s...", apiUrl))
 	resp, err := http.Get(apiUrl)
+	Logs(fmt.Sprintf("CheckUpdate HTTP Success %s...", apiUrl))
 	if err != nil {
 		return
 	}
-	defer resp.Body.Close()
-
+	Logs(fmt.Sprintf("CheckUpdate Get Success %s...", apiUrl))
 	dat, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return
 	}
-
+	defer resp.Body.Close()
+	Logs(fmt.Sprintf("CheckUpdate resp.Body %s...", string(dat)))
+	Logs("CheckUpdate ToRelease...")
 	var release Release
 	json.Unmarshal(dat, &release)
 	rel = release.ToRelease()
@@ -48,6 +57,7 @@ func CheckUpdate(cur Version, compare bool) (rel Release, err error) {
 }
 
 func DownloadFiles(assets []Asset, successFun func(fileNames []string)) (fileNames []string, err error) {
+	Logs("DownloadFiles...")
 	var fileName string
 	defer func() {
 		if err2 := recover(); err2 != nil {
@@ -92,7 +102,6 @@ func DownloadFile(asset Asset) (fileName string, err error) {
 		return
 	}
 	newUrl := v.Get("u")
-	fmt.Println("Downloading", newUrl)
 	resp, err := http.Get(newUrl)
 
 	if err != nil {
@@ -110,6 +119,7 @@ func DownloadFile(asset Asset) (fileName string, err error) {
 		return
 	}
 	fileName = strings.Replace(dis, "attachment;filename=", "", 1)
+	Logs(fmt.Sprintf("DownloadFile %s ...", fileName))
 	_, err = CopyFile(b, fileName)
 	if err != nil {
 		return

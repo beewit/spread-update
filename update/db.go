@@ -1,10 +1,10 @@
 package update
 
 import (
-	"io/ioutil"
 	"encoding/json"
-	"net/http"
 	"errors"
+	"io/ioutil"
+	"net/http"
 )
 
 func DBUpdate(cur Version, successFun func(fileNames []string)) (fileNames []string, err error) {
@@ -20,7 +20,6 @@ func DBUpdate(cur Version, successFun func(fileNames []string)) (fileNames []str
 }
 
 func DBCheckUpdate(cur Version, compare bool) (rel Release, err error) {
-	Log.Info("正在检测版本..")
 	resp, err := http.Get(apiDBUrl)
 	if err != nil {
 		return
