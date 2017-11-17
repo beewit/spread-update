@@ -1,14 +1,14 @@
 package update
 
 import (
-	"io/ioutil"
 	"encoding/json"
-	"net/http"
 	"errors"
-	"net/url"
-	"strings"
-	"os"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"os"
+	"strings"
 )
 
 func Update(cur Version) (fileNames []string, err error) {
@@ -108,7 +108,6 @@ func DownloadFile(dir string, asset Asset) (fileName string, err error) {
 	if err != nil {
 		return
 	}
-	println(resp.Header.Get("content-type"))
 	dis := resp.Header.Get("content-disposition")
 	if !strings.Contains(dis, "attachment;filename=") {
 		err = errors.New("不是有效的下载文件")

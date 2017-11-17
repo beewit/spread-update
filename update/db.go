@@ -8,11 +8,11 @@ import (
 )
 
 func DBUpdate(dir string, cur Version, successFun func(fileNames []string, rel Release)) (fileNames []string, err error) {
-	rel, err := DBCheckUpdate(cur, false)
+	rel, err := DBCheckUpdate(cur, true)
 	if err != nil {
 		return
 	}
-	fileNames, err = DownloadFiles(dir  ,rel, successFun)
+	fileNames, err = DownloadFiles(dir, rel, successFun)
 	if err != nil {
 		return
 	}
