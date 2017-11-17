@@ -43,17 +43,25 @@ func Logs(errStr string) {
 }
 
 func CopyFile(byte []byte, dst string) (w int64, err error) {
-	//判断文件是否存在，存在则进行更改文件名作为历史备份
-	flog, err := PathExists(dst)
-	if err == nil && flog {
-		os.Rename(dst, dst+".old")
-	}
+	Rename(dst+".old", dst+time.Now().Format("2006-01-02 15:04:05")+".old")
+	Rename(dst, dst+".old")
 	dstFile, err := os.Create(dst)
 	if err != nil {
 		return
 	}
 	defer dstFile.Close()
 	return io.Copy(dstFile, bytes.NewReader(byte))
+}
+
+func Rename(dst, oldDst string) bool {
+	flog, err := PathExists(dst)
+	if err == nil && flog {
+		err = os.Rename(dst, oldDst)
+		if err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func Unzip(fileName string) {
