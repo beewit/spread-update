@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"os"
 	"strings"
 )
@@ -31,6 +30,7 @@ func CheckUpdate(cur Version, compare bool) (rel Release, err error) {
 			Logs(errStr)
 		}
 	}()
+	apiUrl := GetApiByType(APPSpread)
 	Logs(fmt.Sprintf("CheckUpdate Get %s...", apiUrl))
 	resp, err := http.Get(apiUrl)
 	Logs(fmt.Sprintf("CheckUpdate HTTP Success %s...", apiUrl))
@@ -45,9 +45,9 @@ func CheckUpdate(cur Version, compare bool) (rel Release, err error) {
 	defer resp.Body.Close()
 	Logs(fmt.Sprintf("CheckUpdate resp.Body %s...", string(dat)))
 	Logs("CheckUpdate ToRelease...")
-	var release Release
-	json.Unmarshal(dat, &release)
-	rel = release.ToRelease()
+	var rd ResponseData
+	json.Unmarshal(dat, &rd)
+	rel = rd.Release.ToRelease()
 	if compare {
 		if !rel.Version.After(cur) {
 			err = errors.New("没有可用的更新")
@@ -81,29 +81,18 @@ func DownloadFiles(dir string, rel Release, successFun func(fileNames []string, 
 		err = errors.New("未获取到下载文件")
 		return
 	}
-	for i, asset := range assets {
-		if i < len(assets)-1 {
-			fileName, err = DownloadFile(dir, asset)
-			if err != nil {
-				return
-			}
-			fileNames = append(fileNames, fileName)
+	for _, asset := range assets {
+		fileName, err = DownloadFile(dir, asset)
+		if err != nil {
+			return
 		}
+		fileNames = append(fileNames, fileName)
 	}
 	return
 }
 
 func DownloadFile(dir string, asset Asset) (fileName string, err error) {
-	u, err := url.Parse(asset.Url)
-	if err != nil {
-		return
-	}
-	v, err := url.ParseQuery(u.RawQuery)
-	if err != nil {
-		return
-	}
-	newUrl := v.Get("u")
-	resp, err := http.Get(newUrl)
+	resp, err := http.Get(asset.Url)
 
 	if err != nil {
 		return

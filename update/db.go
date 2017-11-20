@@ -20,6 +20,7 @@ func DBUpdate(dir string, cur Version, successFun func(fileNames []string, rel R
 }
 
 func DBCheckUpdate(cur Version, compare bool) (rel Release, err error) {
+	apiDBUrl := GetApiByType(APPSpreadDB)
 	resp, err := http.Get(apiDBUrl)
 	if err != nil {
 		return
@@ -30,10 +31,9 @@ func DBCheckUpdate(cur Version, compare bool) (rel Release, err error) {
 	if err != nil {
 		return
 	}
-
-	var release Release
-	json.Unmarshal(dat, &release)
-	rel = release.ToRelease()
+	var rd ResponseData
+	json.Unmarshal(dat, &rd)
+	rel = rd.Release.ToRelease()
 	if compare {
 		if !rel.Version.After(cur) {
 			err = errors.New("没有可用的更新")

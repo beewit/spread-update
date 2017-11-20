@@ -7,7 +7,17 @@ import (
 	"archive/zip"
 	"bytes"
 	"time"
+	"io/ioutil"
+	"regexp"
+	"net/http"
+	"strings"
 )
+
+type ResponseData struct {
+	Release    `json:"data"`
+	Msg string `json:"msg"`
+	Ret int    `json:"ret"`
+}
 
 type Version struct {
 	Major int `json:"major,omitempty"`
@@ -17,6 +27,7 @@ type Version struct {
 
 type Release struct {
 	Version
+	Body    string  `json:"body"`
 	TagName string  `json:"tag_name"`
 	Assets  []Asset `json:"assets"`
 }
@@ -26,10 +37,15 @@ type Asset struct {
 }
 
 const (
-	tagFmt   = "v%d.%d.%d"
-	apiUrl   = "https://gitee.com/api/v5/repos/beewit/spread/releases/latest?access_token=kdw2HGxYpTzVrdKpbQbV"
-	apiDBUrl = "https://gitee.com/api/v5/repos/beewit/spread-db/releases/latest?access_token=kdw2HGxYpTzVrdKpbQbV"
+	tagFmt      = "v%d.%d.%d"
+	getApi      = "https://gitee.com/beewit/app"
+	APPSpread   = "spread"
+	APPSpreadDB = "spread-db"
+	//apiUrl   = "https://gitee.com/api/v5/repos/beewit/spread/releases/latest?access_token=kdw2HGxYpTzVrdKpbQbV"
+	//apiDBUrl = "https://gitee.com/api/v5/repos/beewit/spread-db/releases/latest?access_token=kdw2HGxYpTzVrdKpbQbV"
 )
+
+var ApiUrl string
 
 func Logs(errStr string) {
 	errStr = time.Now().Format("2006-01-02 15:04:05") + "   " + errStr
@@ -40,6 +56,53 @@ func Logs(errStr string) {
 	} else {
 		file.Write([]byte(errStr))
 	}
+}
+
+func init() {
+	var err error
+	ApiUrl, err = GetApi()
+	if err != nil {
+		Logs(fmt.Sprintf("update/update.go  获取GetApi失败，ERROR:%s", err.Error()))
+	}
+}
+
+func GetApiByType(app string) (url string) {
+	if ApiUrl == "" {
+		return
+	}
+	if strings.Contains(ApiUrl, "?") {
+		url = fmt.Sprintf("%s&app=%s", ApiUrl, app)
+		return
+	}
+	url = fmt.Sprintf("%s?app=%s", ApiUrl, app)
+	return
+}
+
+func GetApi() (url string, err error) {
+	var resp *http.Response
+	var dat []byte
+	resp, err = http.Get(getApi)
+	if err != nil {
+		return
+	}
+	dat, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	if regName := regexp.MustCompile(`<meta content='(.*)' name='Description'>`).FindAllStringSubmatch(string(dat), -1); len(regName) == 1 {
+		url = regName[0][1]
+		if url == "" {
+			return
+		}
+		url = strings.Trim(url, "")
+		reStr := "http(s)?://([\\w-]+\\.)+[\\w-]+(/[\\w- ./?%&=]*)?"
+		flog, _ := regexp.Match(reStr, []byte(url))
+		if !flog {
+			url = ""
+		}
+	}
+	return
 }
 
 func CopyFile(byte []byte, dst string) (w int64, err error) {
@@ -127,6 +190,8 @@ func (gr Release) ToRelease() (rel Release) {
 	var major, minor, patch int
 	fmt.Sscanf(gr.TagName, tagFmt, &major, &minor, &patch)
 	rel.Version = Version{major, minor, patch}
+	rel.Body = gr.Body
+	rel.TagName = gr.TagName
 	for _, ga := range gr.Assets {
 		rel.Assets = append(rel.Assets, Asset{ga.Url})
 	}
